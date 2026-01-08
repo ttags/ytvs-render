@@ -168,6 +168,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       keyId: "1779c27b9d077a3ba0c9cc1bb9a94b9f",
       key: "cc5cf3b7928fb9e0a1ee6a8b566f0a8e"
     },
+    "bplhd": { 
+    url: "https://stream.snexus.co/live/SN_WILDLIFE/main_stream.m3u8"
+  }
   };
 
   // Get ?id= parameter from the URL (e.g. ?id=2)
@@ -180,27 +183,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  // Configure DRM dynamically
-  player.configure({
-    drm: {
-      clearKeys: {
-        [stream.keyId]: stream.key
-      }
-    },
-    streaming: {
-      lowLatencyMode: true
+  // Detect stream type
+const isDash = stream.url.endsWith('.mpd');
+const isHls = stream.url.endsWith('.m3u8');
+  
+// Play the stream accordingly
+try {
+  if (isDash) {
+    // Configure DRM if exists
+    if (stream.keyId && stream.key) {
+      player.configure({
+        drm: { clearKeys: { [stream.keyId]: stream.key } },
+        streaming: { lowLatencyMode: true }
+      });
     }
-  });
-
-  // Load selected stream
-  try {
     await player.load(stream.url);
-    console.log("✅ Loaded stream ID:", id);
-  } catch (error) {
-    console.error("❌ Failed to load stream:", error);
-    alert("Failed to load the selected live stream.");
+    console.log("✅ Loaded DASH/DRM stream:", id);
+
+  } else if (isHls) {
+    // HLS fallback
+    if (Hls.isSupported()) {
+      const hls = new Hls();
+      hls.loadSource(stream.url);
+      hls.attachMedia(video);
+      console.log("✅ Loaded HLS stream via Hls.js:", id);
+    } else {
+      video.src = stream.url; // native HLS support on Safari
+      video.play();
+      console.log("✅ Loaded HLS stream via native HTML5:", id);
+    }
   }
-});
+} catch (error) {
+  console.error("❌ Failed to load stream:", error);
+  alert("Failed to load the selected live stream.");
+}
+  
 </script>
 
 </body>
