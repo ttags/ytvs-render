@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Live Player</title>
+
+  <!-- Shaka UI -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css"
+  />
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js"></script>
+
+  <style>
+    html, body {
+      margin: 0;
+      background: #000;
+      height: 100%;
+    }
+    .shaka-video-container {
+      width: 100%;
+      height: 100vh;
+    }
+    video {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+
+<div class="shaka-video-container" data-shaka-player>
+  <video autoplay playsinline></video>
+</div>
+
+<script>
+(async () => {
+  shaka.polyfill.installAll();
+
+  if (!shaka.Player.isBrowserSupported()) {
+    alert("Browser not supported");
+    return;
+  }
+
+  const video = document.querySelector("video");
+  const container = document.querySelector(".shaka-video-container");
+
+  const player = new shaka.Player(video);
+  const ui = new shaka.ui.Overlay(player, container, video);
+
+  ui.configure({
+    controlPanelElements: [
+      "play_pause",
+      "time_and_duration",
+      "mute",
+      "volume",
+      "spacer",
+      "quality",
+      "fullscreen"
+    ],
+    seekBarColors: {
+      base: "rgba(255,255,255,.3)",
+      buffered: "rgba(255,255,255,.54)",
+      played: "#ff0000"
+    }
+  });
+
+  // --- Get parameters ---
+  const params = new URLSearchParams(window.location.search);
+
+  const src = params.get("src");       // mpd or m3u8
+  const keyId = params.get("kid");     // optional
+  const key = params.get("key");       // optional
+
+  if (!src) {
+    alert("No stream source provided");
+    return;
+  }
+
+  // --- DRM only if keys exist ---
+  if (keyId && key) {
+    player.configure({
+      drm: {
+        clearKeys: {
+          [keyId]: key
+        }
+      }
+    });
+  }
+
+  // --- Streaming optimizations ---
+  player.configure({
+    streaming: {
+      lowLatencyMode: true,
+      bufferingGoal: 30,
+      rebufferingGoal: 15
+    }
+  });
+
+  try {
+    await player.load(src);
+    console.log("✅ Stream loaded");
+  } catch (e) {
+    console.error("❌ Load failed", e);
+  }
+})();
+</script>
+
+</body>
+</html>
