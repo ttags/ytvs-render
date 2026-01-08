@@ -201,17 +201,22 @@ try {
     console.log("✅ Loaded DASH/DRM stream:", id);
 
   } else if (isHls) {
+    await player.destroy(); // 🔴 IMPORTANT
     // HLS fallback
-    if (Hls.isSupported()) {
-      const hls = new Hls();
-      hls.loadSource(stream.url);
-      hls.attachMedia(video);
-      console.log("✅ Loaded HLS stream via Hls.js:", id);
-    } else {
-      video.src = stream.url; // native HLS support on Safari
-      video.play();
-      console.log("✅ Loaded HLS stream via native HTML5:", id);
-    }
+  if (Hls.isSupported()) {
+    const hls = new Hls({
+      lowLatencyMode: true,
+      enableWorker: true
+    });
+    hls.loadSource(stream.url);
+    hls.attachMedia(video);
+    console.log("✅ Loaded HLS stream via Hls.js:", id);
+  } else {
+    video.src = stream.url; // Safari
+    await video.play();
+    console.log("✅ Loaded HLS stream via native HTML5:", id);
+  }
+    
   }
 } catch (error) {
   console.error("❌ Failed to load stream:", error);
