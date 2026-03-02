@@ -160,7 +160,10 @@
   <div class="play-text">Click to Play</div>
 </div>
 
-
+<!-- 
+  ?id = direct manifest file lookup for DASH or HLS
+  ?ref = direct HLS, no manifest lookup
+  -->
   <script>
 document.addEventListener('DOMContentLoaded', async () => {
   shaka.polyfill.installAll();
@@ -191,7 +194,37 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Stream Logic - Get ?id= parameter
 const params = new URLSearchParams(window.location.search);
 const id = params.get('id') || "1";
+const ref = params.get('ref');
 
+// DIRECT M3U8 HANDLING
+if (ref) {
+  try {
+    const url = decodeURIComponent(ref);
+
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        lowLatencyMode: true,
+        enableWorker: true
+      });
+
+      hls.loadSource(url);
+      hls.attachMedia(video);
+
+      console.log("✅ Direct HLS loaded via ref:", url);
+    } else {
+      video.src = url; // Safari native HLS
+      console.log("✅ Direct HLS native:", url);
+    }
+
+    return; // Stop further logic
+  } catch (e) {
+    console.error("Direct ref load failed:", e);
+    alert("Direct stream failed");
+    return;
+  }
+}
+
+// ID-Based logic  
 try {
   const response = await fetch("https://ytvs-render.pages.dev/manifest", {
     cache: "no-store"
