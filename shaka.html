@@ -72,20 +72,7 @@
     height: 60px;
   }
 
-   /* Bottom-center overlay text (slightly higher) */
-  #overlay-text {
-    position: absolute;
-    bottom: 60px; /* moved higher */
-    left: 50%;
-    transform: translateX(-50%);
-    color: #fff;
-    font-size: 22px;
-    font-weight: 700;
-    text-shadow: 2px 2px 6px rgba(0,0,0,0.8);
-    z-index: 10;
-    pointer-events: none;
-    font-family: 'Roboto', sans-serif;
-  } /* Bottom-center overlay text */
+/* Bottom-center overlay text */
   #overlay-text {
     position: absolute;
     bottom: 5%;
@@ -201,68 +188,60 @@ document.addEventListener('DOMContentLoaded', async () => {
     ]
   });
 
-  const streams = {
-    "1": {
-      url: "https://a204aivottepl-a.akamaihd.net/sin-nitro/live/clients/dash/enc/fdb3pubmek/out/v1/aefca6420f944a9482e117f315de535f/cenc.mpd",
-      keyId: "7e9239c1982d984a002df3ed049d0756",
-      key: "1b8a17598129a3618535c8fb05f103fe"
-    },
-    "4": {
-      url: "https://a201aivottlinear-a.akamaihd.net/OTTB/lhr-nitro/clients/dash/enc/f60kqesunw/out/v1/a435ed7a00f947deb4369b46d8f2fb70/cenc.mpd",
-      keyId: "1779c27b9d077a3ba0c9cc1bb9a94b9f",
-      key: "cc5cf3b7928fb9e0a1ee6a8b566f0a8e"
-    },
-    "bplhd": {
-      url: "https://stream.snexus.co/live/SN_WILDLIFE/main_stream.m3u8"
-    }
-  };
+// Stream Logic - Get ?id= parameter
+const params = new URLSearchParams(window.location.search);
+const id = params.get('id') || "1";
 
-  // Get ?id= parameter from the URL (e.g. ?id=2)
-  const params = new URLSearchParams(window.location.search);
-  const id = params.get('id') || "1";
+try {
+  const response = await fetch("https://ytvs-render.pages.dev/manifest", {
+    cache: "no-store"
+  });
 
+  if (!response.ok) throw new Error("Links fetch failed");
+
+  const streams = await response.json();
   const stream = streams[id];
+
   if (!stream) {
     alert("Invalid stream ID");
     return;
   }
 
-  // Detect stream type hls or DRM
-  const isDash = stream.url.endsWith('.mpd');
-  const isHls = stream.url.endsWith('.m3u8');
-
-  try {
-    if (isDash) {
-      if (stream.keyId && stream.key) {
-        player.configure({
-          drm: { clearKeys: { [stream.keyId]: stream.key } },
-          streaming: { lowLatencyMode: true }
-        });
-      }
-      await player.load(stream.url);
-      console.log("✅ DASH loaded:", id);
+  if (stream.type === "dash") {
+    if (stream.keyId && stream.key) {
+      player.configure({
+        drm: { clearKeys: { [stream.keyId]: stream.key } },
+        streaming: { lowLatencyMode: true }
+      });
     }
 
-    if (isHls) {
-      await player.destroy();   // IMPORTANT
-      player = null;
-
-      if (Hls.isSupported()) {
-        const hls = new Hls({
-          lowLatencyMode: true,
-          enableWorker: true
-        });
-        hls.loadSource(stream.url);
-        hls.attachMedia(video);
-        console.log("✅ HLS via hls.js:", id);
-      } else {
-        video.src = stream.url; // Safari
-        console.log("✅ HLS native:", id);
-      }
-    }
-  } catch (e) {
-    console.error("Playback failed:", e);
+    await player.load(stream.url);
+    console.log("✅ DASH loaded:", id);
   }
+
+  else if (stream.type === "hls") {
+    await player.destroy();
+    player = null;
+
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        lowLatencyMode: true,
+        enableWorker: true
+      });
+
+      hls.loadSource(stream.url);
+      hls.attachMedia(video);
+      console.log("✅ HLS via hls.js:", id);
+    } else {
+      video.src = stream.url;
+      console.log("✅ HLS native:", id);
+    }
+  }
+
+} catch (err) {
+  console.error("Stream load failed:", err);
+  alert("Stream temporarily unavailable");
+}
 
 /* Click to play FROM HERE */
 const overlay = document.getElementById('click-overlay');
