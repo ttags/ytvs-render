@@ -1,0 +1,18 @@
+{
+  "1": {
+    "type": "dash",
+    "url": "https://example.com/live1.mpd",
+    "keyId": "7e9239c1982d984a002df3ed049d0756",
+    "key": "1b8a17598129a3618535c8fb05f103fe"
+  },
+  "4": {
+    "type": "dash",
+    "url": "https://example.com/live4.mpd",
+    "keyId": "1779c27b9d077a3ba0c9cc1bb9a94b9f",
+    "key": "cc5cf3b7928fb9e0a1ee6a8b566f0a8e"
+  },
+  "bplhd": {
+    "type": "hls",
+    "url": "https://example.com/wildlife.m3u8"
+  }
+}
