@@ -191,6 +191,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     ]
   });
 
+  /* 1. MOVE THIS BLOCK UP HERE (Above the Stream Logic) */
+const overlay = document.getElementById('click-overlay');
+
+overlay.addEventListener('click', async () => {
+  try {
+    await video.play(); 
+    overlay.classList.add('hidden');
+  } catch (err) {
+    console.error("User play failed:", err);
+  }
+});
+
+video.addEventListener('play', () => overlay.classList.add('hidden'));
+video.addEventListener('pause', () => overlay.classList.remove('hidden'));
+
 // Stream Logic - Get ?id= parameter
 const params = new URLSearchParams(window.location.search);
 const id = params.get('id') || "1";
@@ -278,26 +293,6 @@ try {
   console.error("Stream load failed:", err);
   alert("Stream temporarily unavailable");
 }
-
-/* Click to play FROM HERE */
-const overlay = document.getElementById('click-overlay');
-
-overlay.addEventListener('click', async () => {
-  try {
-    await video.play(); // user gesture → sound allowed
-    overlay.classList.add('hidden');
-  } catch (err) {
-    console.error("User play failed:", err);
-  }
-});
-
-video.addEventListener('play', () => {
-  overlay.classList.add('hidden');
-});
-
-video.addEventListener('pause', () => {
-  overlay.classList.remove('hidden');
-});
 
   
 });
