@@ -13,6 +13,10 @@
   },
   "bplhd": {
     "type": "hls",
-    "url": "https://stream.snexus.co/live/SN_WILDLIFE/main_stream.m3u8"
+    "url": "https://viewembed.ru/channel/SkySportsCricket%5BUK%5D"
+  }
+  "aussa": {
+    "type": "hls",
+    "url": "https://viewembed.ru/channel/SkySportsCricket%5BUK%5D"
   }
 }
