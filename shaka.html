@@ -1,303 +1,355 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Live Stream Player</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
+    <title>Information Sources | YonoTVs</title>
+    <link href="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjTMZUW020Uhv6WeeF6v61lYNBjtoknv_lG7aZXsDyRrUCOlQiyd_DMcRVHLMIwOEEfl26kGwrLhyphenhyphenxKmp_26X8rcyIepfuJXbiLwx7_1zHEHA4f4JeyHoJTQpbcYRHphXIhoyL_I0JSscHywHRRXDBOFumKHCxUpr59hFnxG9kQRVtz1D322yBM462BzyKW/s16000/Ytvs%20-final%20logo.jpg" rel="icon" type="image/x-icon"/>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #007bff;
+            --bg-body: #f8fafc;
+            --container-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --btn-gray: #f1f5f9;
+        }
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js" crossorigin="anonymous"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css" crossorigin="anonymous">
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+        .dark-mode {
+            --bg-body: #0f172a;
+            --container-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --btn-gray: #334155;
+        }
 
-<style>
-  html, body {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    background: #000;
-    overflow: hidden;
-  }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            transition: 0.3s ease;
+        }
 
-  .shaka-video-container {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-  }
+        .app-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px 15px;
+        }
 
-  .shaka-spinner-container,
-.shaka-spinner,
-.shaka-spinner-svg {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-}
+        .brand-header {
+            text-align: center;
+            margin-bottom: 10px;
+        }
 
+        .brand-logo {
+            max-height: 50px;
+            width: auto;
+        }
 
-  video {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    background: #000;
-  }
+        .toolbar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 5px;
+            margin-bottom: 10px;
+            gap: 12px;
+            flex-wrap: wrap;  
+        }
 
-  /* LIVE Banner */
-  .live-banner {
-    position: absolute;
-    top: 20px;
-    right: 80px;
-    z-index: 10;
-    background: red;
-    color: white;
-    padding: 8px 16px;
-    font-weight: bold;
-    font-size: 16px;
-    border-radius: 4px;
-    text-transform: uppercase;
-    animation: pulse 1s infinite;
-  }
+        .btn-utility {
+            background: var(--btn-gray);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.2s;
+        }
 
-  @keyframes pulse {
-    0%,100% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.1); opacity: 0.8; }
-  }
+        .btn-primary { background: var(--primary); color: white; border: none; }
 
-  /* Logo */
-  .logo {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    z-index: 10;
-    height: 60px;
-  }
+        .frame-box {
+            position: relative;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 16 / 9;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
+        }
 
-/* Bottom-center overlay text */
-  #overlay-text {
-    position: absolute;
-    bottom: 5%;
-    left: 50%;
-    transform: translateX(-50%);
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 1.2vw;
-    min-font-size: 12px;
-    max-font-size: 20px;
-    font-weight: 600;
-    text-shadow: 1px 1px 4px rgba(0,0,0,0.8);
-    z-index: 10;
-    pointer-events: none;
-    font-family: 'Roboto', sans-serif;
-  }
+        #content-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
 
-  @media (max-width: 600px) {
-    #overlay-text {
-      font-size: 14px;
-      bottom: 8%;
-    }
-  }
+        /* Loading state shown while manifest is being fetched */
+        #loading-ui {
+            display: none;
+            position: absolute;
+            inset: 0;
+            background: #000;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 12px;
+            color: rgba(255,255,255,0.7);
+            font-size: 14px;
+        }
 
-  #click-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 20;
-  cursor: pointer;
-  transition: opacity 0.3s ease;
-}
+        #loading-ui.show { display: flex; }
 
-#click-overlay.hidden {
-  opacity: 0;
-  pointer-events: none;
-}
+        .spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid rgba(255,255,255,0.15);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
 
-.play-btn {
-  width: 90px;
-  height: 90px;
-  background: rgba(255, 255, 255, 0.9);
-  color: #000;
-  font-size: 42px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-}
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-.play-text {
-  margin-top: 14px;
-  color: #fff;
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  opacity: 0.85;
-}
+        .fallback-ui {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: white;
+        }
 
-  
-</style>
+        .status-alert {
+            background: #eff6ff;
+            color: #1e40af;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-bottom: 10px;
+            border: 1px solid #bfdbfe;
+            text-align: center;
+        }
+
+        .dark-mode .status-alert { background: #1e293b; color: #60a5fa; border-color: #3b82f6; }
+
+        .community-section { margin-top: 25px; }
+
+        #interaction-frame {
+            width: 100%;
+            height: 450px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            margin-top: 15px;
+            display: none;
+            background: white;
+        }
+
+        .legal-footer {
+            margin-top: 40px;
+            padding: 25px;
+            background: var(--container-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        .legal-title {
+            display: block;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+
+        @media (max-width: 300px) {
+            .btn-utility span { display: none; }
+        }
+
+        @media (max-width: 600px) {
+            .frame-box {
+                height: 350px; 
+                aspect-ratio: auto;
+            }
+        }
+    </style>
 </head>
-
 <body>
 
-<!-- Logo -->
-<img  src="" alt="Logo">
+<div class="app-container">
+    <header class="brand-header">
+        <a href="/">
+            <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjTMZUW020Uhv6WeeF6v61lYNBjtoknv_lG7aZXsDyRrUCOlQiyd_DMcRVHLMIwOEEfl26kGwrLhyphenhyphenxKmp_26X8rcyIepfuJXbiLwx7_1zHEHA4f4JeyHoJTQpbcYRHphXIhoyL_I0JSscHywHRRXDBOFumKHCxUpr59hFnxG9kQRVtz1D322yBM462BzyKW/s16000/Ytvs%20-final%20logo.jpg" alt="YonoTVS Index" class="brand-logo">
+        </a>
+    </header>
 
-<!-- LIVE Banner -->
-<div class=""></div>
+    <div class="status-alert">
+        <i class="fas fa-info-circle"></i> <b>YonoTVs.com:</b> This page provides a technical display frame for externally referenced resources.
+    </div>
 
-<!-- Shaka Player Video Container -->
-<div class="shaka-video-container" data-shaka-player>
-  <video playsinline preload="metadata" poster="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEitCOH8hfTOSrv-A6H69EGXH9nONNBHPXCKB4uf6STJCZ2XUaYNDQJtlW4-UEqZCA4KQxXUhpTtWqcNL2z9anbJt1wAYpZGYbffbg3Aogsrku2D5XAxDBhonssZ9DWk7Kgh_W9f_60L7GSkDgc9c2t8mwV0UKetNA7CLufGsc1eIFKwm-X_Rpkb0Ip-gPKK/s16000/YTVS%20ALT%20logo.jpg"></video>
-</div>
-<div id="overlay-text">YonoTVs.com</div>
+    <main class="frame-box">
+        <iframe id="content-frame" allow="autoplay; fullscreen; encrypted-media" allowfullscreen></iframe>
 
-  
-  <div id="click-overlay">
-  <div class="play-btn">▶</div>
-  <div class="play-text">Click to Play</div>
-</div>
+        <!-- Shown while resolving a manifest key for direct type -->
+        <div id="loading-ui">
+            <div class="spinner"></div>
+            <span>Resolving stream…</span>
+        </div>
 
-<!-- 
-  ?ref = manifest file lookup for DASH or HLS
-  ?hls = direct HLS, no manifest lookup
-  -->
-  <script>
-document.addEventListener('DOMContentLoaded', async () => {
-  shaka.polyfill.installAll();
+        <div id="fallback" class="fallback-ui">
+            <i class="fas fa-exclamation-triangle fa-2x"></i>
+            <p>Resource temporarily unavailable.</p>
+        </div>
+    </main>
 
-  if (!shaka.Player.isBrowserSupported()) {
-    alert('Browser not supported');
-    return;
-  }
-
-  const video = document.querySelector('video');
-  let player = new shaka.Player(video);
-
-  const container = document.querySelector('.shaka-video-container');
-  const ui = new shaka.ui.Overlay(player, container, video);
-
-  ui.configure({
-    controlPanelElements: [
-      'play_pause',
-      'time_and_duration',
-      'mute',
-      'volume',
-      'spacer',
-      'quality',
-      'fullscreen'
-    ]
-  });
-
-  /* 1. MOVE THIS BLOCK UP HERE (Above the Stream Logic) */
-const overlay = document.getElementById('click-overlay');
-
-overlay.addEventListener('click', async () => {
-  try {
-    await video.play(); 
-    overlay.classList.add('hidden');
-  } catch (err) {
-    console.error("User play failed:", err);
-  }
-});
-
-video.addEventListener('play', () => overlay.classList.add('hidden'));
-video.addEventListener('pause', () => overlay.classList.remove('hidden'));
-
-// Stream Logic - Get ?ref= parameter
-const params = new URLSearchParams(window.location.search);
-const id = params.get('ref') || "1";
-const ref = params.get('hls');
-
-// DIRECT M3U8 HANDLING
-if (ref) {
-  try {
-    const url = decodeURIComponent(ref);
-
-    await player.destroy();
-    player = null;
+    <div class="toolbar">
+        <button class="btn-utility" id="sync-btn">
+            <i class="fas fa-sync-alt"></i> <span>Sync</span>
+        </button>
+        <button class="btn-utility btn-primary" id="community-btn">
+            <i class="fas fa-comments"></i> <span>Chat</span>
+        </button>
+        <button class="btn-utility" id="theme-btn">
+            <i class="fas fa-moon"></i> <span>Dark</span>
+        </button>
+    </div>
     
-    if (Hls.isSupported()) {
-      const hls = new Hls({
-        lowLatencyMode: true,
-        enableWorker: true
-      });
+    <div class="community-section">
+        <iframe id="interaction-frame" title="Discussion Board"></iframe>
+    </div>
 
-      hls.loadSource(url);
-      hls.attachMedia(video);
+    <footer class="legal-footer">
+        <span class="legal-title">Legal Disclaimer & DMCA Policy</span>
+        <p><strong>Operational Framework:</strong> This service acts solely as a neutral presentation interface. We do not host, store, or transmit any digital media on our own infrastructure.</p>
+        <p><strong>Rights & Trademarks:</strong> All logos, brand names, and third-party trademarks remain the property of their respective owners. Users are responsible for compliance with regional regulations.</p>
+        <p><strong>Compliance Notice:</strong> Verified takedown requests are honored promptly: email contact@yonotvs.com</p>
+    </footer>
+</div>
 
-      console.log("✅ Direct HLS loaded via ref:", url);
-    } else {
-      video.src = url; // Safari native HLS
-      console.log("✅ Direct HLS native:", url);
+<script>
+    const MANIFEST_URL = "https://ytvs-db.pages.dev/manifest.json";
+
+    const params       = new URLSearchParams(window.location.search);
+    const refParam     = params.get('ref');
+    const contentFrame = document.getElementById('content-frame');
+    const fallback     = document.getElementById('fallback');
+    const loadingUI    = document.getElementById('loading-ui');
+
+    // ── Helper: show fallback error ──────────────────────────────────────────
+    function showFallback() {
+        loadingUI.classList.remove('show');
+        contentFrame.style.display = 'none';
+        fallback.style.display = 'block';
     }
 
-    return; // Stop further logic
-  } catch (e) {
-    console.error("Direct ref load failed:", e);
-    alert("Direct stream failed");
-    return;
-  }
-}
-
-// ID-Based logic  
-try {
-  const response = await fetch("https://ytvs-db.pages.dev/manifest.json", {
-    cache: "no-store"
-  });
-
-  if (!response.ok) throw new Error("Links fetch failed");
-
-  const streams = await response.json();
-  const stream = streams[id];
-
-  if (!stream) {
-    alert("Invalid stream ID");
-    return;
-  }
-
-  if (stream.type === "dash") {
-    if (stream.keyId && stream.key) {
-      player.configure({
-        drm: { clearKeys: { [stream.keyId]: stream.key } },
-        streaming: { lowLatencyMode: true }
-      });
+    // ── Helper: load a URL into the iframe ───────────────────────────────────
+    function loadIntoFrame(url) {
+        loadingUI.classList.remove('show');
+        contentFrame.src = url;
     }
 
-    await player.load(stream.url);
-    console.log("✅ DASH loaded:", id);
-  }
+    // ── Main routing logic ───────────────────────────────────────────────────
+    async function route() {
+        if (!refParam) { showFallback(); return; }
 
-  else if (stream.type === "hls") {
-    await player.destroy();
-    player = null;
+        // Check if refParam looks like a URL (has a scheme / contains a dot after scheme)
+        let isUrl = false;
+        try {
+            const u = new URL(refParam);
+            // new URL() succeeds even for bare keys if they happen to look like paths,
+            // so we only trust it when scheme is http(s)
+            isUrl = u.protocol === 'http:' || u.protocol === 'https:';
+        } catch (_) { isUrl = false; }
 
-    if (Hls.isSupported()) {
-      const hls = new Hls({
-        lowLatencyMode: true,
-        enableWorker: true
-      });
+        if (isUrl) {
+            // ── Existing behaviour: ref is a full URL ────────────────────────
+            // e.g. frame?ref=https://ytvs-render.pages.dev/shaka?ref=ipl1
+            // or   frame?ref=frame?ref=ipl2  <- after our admin change this
+            //      becomes frame?ref=https://ytvs-frame.pages.dev/frame?ref=ipl2
+            loadIntoFrame(refParam);
+            return;
+        }
 
-      hls.loadSource(stream.url);
-      hls.attachMedia(video);
-      console.log("✅ HLS via hls.js:", id);
-    } else {
-      video.src = stream.url;
-      console.log("✅ HLS native:", id);
+        // ── NEW: ref is a bare manifest key (e.g. "ipl2") ───────────────────
+        // Fetch manifest, resolve the key, expect type === "direct"
+        loadingUI.classList.add('show');
+
+        try {
+            const res = await fetch(MANIFEST_URL, { cache: 'no-store' });
+            if (!res.ok) throw new Error('Manifest fetch failed');
+
+            const manifest = await res.json();
+            const entry    = manifest[refParam];
+
+            if (!entry) throw new Error(`Key "${refParam}" not found in manifest`);
+
+            if (entry.type === 'direct') {
+                // Wrap the real URL in an iframe — just load it directly as the src
+                loadIntoFrame(entry.url);
+            } else {
+                // Key exists but it's hls/dash — those go through the shaka page, not here
+                // Shouldn't happen in normal flow, but handle gracefully
+                console.warn(`Manifest key "${refParam}" is type "${entry.type}", expected "direct"`);
+                showFallback();
+            }
+        } catch (e) {
+            console.error('Frame manifest resolution failed:', e);
+            showFallback();
+        }
     }
-  }
 
-} catch (err) {
-  console.error("Stream load failed:", err);
-  alert("Stream temporarily unavailable");
-}
+    route();
 
-  
-});
+    // ── Community Toggle ─────────────────────────────────────────────────────
+    const chatUrl  = "https://ytvs-frame.pages.dev/discuss";
+    const commBtn  = document.getElementById('community-btn');
+    const commFrame= document.getElementById('interaction-frame');
+    let isCommActive = false;
+
+    commBtn.addEventListener('click', () => {
+        if (!isCommActive) {
+            commFrame.src = chatUrl;
+            commFrame.style.display = "block";
+            commBtn.innerHTML = '<i class="fas fa-times"></i> Close Chat';
+            isCommActive = true;
+        } else {
+            commFrame.style.display = "none";
+            commBtn.innerHTML = '<i class="fas fa-comments"></i> Chat';
+            isCommActive = false;
+        }
+    });
+
+    // ── Theme Switcher ───────────────────────────────────────────────────────
+    const themeBtn = document.getElementById('theme-btn');
+    themeBtn.addEventListener('click', () => {
+        document.body.classList.toggle('dark-mode');
+        const isDark = document.body.classList.contains('dark-mode');
+        themeBtn.innerHTML = isDark
+            ? '<i class="fas fa-sun"></i> <span>Light</span>'
+            : '<i class="fas fa-moon"></i> <span>Dark</span>';
+    });
+
+    // ── Refresh ──────────────────────────────────────────────────────────────
+    document.getElementById('sync-btn').addEventListener('click', () => location.reload());
 </script>
-
 
 </body>
 </html>
