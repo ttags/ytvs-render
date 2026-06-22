@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Live Stream Player</title>
+<title>Ono Video Player</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js" crossorigin="anonymous"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css" crossorigin="anonymous">
@@ -150,10 +150,9 @@
 
 <!-- Shaka Player Video Container -->
 <div class="shaka-video-container" data-shaka-player>
-  <video playsinline preload="metadata" poster="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEitCOH8hfTOSrv-A6H69EGXH9nONNBHPXCKB4uf6STJCZ2XUaYNDQJtlW4-UEqZCA4KQxXUhpTtWqcNL2z9anbJt1wAYpZGYbffbg3Aogsrku2D5XAxDBhonssZ9DWk7Kgh_W9f_60L7GSkDgc9c2t8mwV0UKetNA7CLufGsc1eIFKwm-X_Rpkb0Ip-gPKK/s16000/YTVS%20ALT%20logo.jpg"></video>
+  <video playsinline preload="metadata" poster="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEipwFyueknjbWXtmnGkGVk_HOX3FhyrlrbzdRJmdvF7PCKYbOVYqYov1mCPchehq6dq1giBlDIPABNAxDmjkLfn5fLf4xhtdlHMsPmB2A27zQaR2-rHsu3BS0vYrkCkG2TrUtr-YkF-JTHh7JmDNuhIEbijStkJoVxOVBx2fjibrDlTfssDMiKPCouVUHI/s16000/ONOtv.png"></video>
 </div>
-<div id="overlay-text">YonoTVs.com</div>
-
+<div id="overlay-text">OnoTV.me</div>
   
   <div id="click-overlay">
   <div class="play-btn">▶</div>
@@ -191,7 +190,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     ]
   });
 
-  /* 1. MOVE THIS BLOCK UP HERE (Above the Stream Logic) */
+
 const overlay = document.getElementById('click-overlay');
 
 overlay.addEventListener('click', async () => {
@@ -208,13 +207,18 @@ video.addEventListener('pause', () => overlay.classList.remove('hidden'));
 
 // Stream Logic - Get ?ref= parameter
 const params = new URLSearchParams(window.location.search);
-const id = params.get('ref') || "1";
-const ref = params.get('hls');
+const streamId = params.get('ref') || "1";
+const directHlsUrl = params.get('hls');
+
+// Direct MPD parameters
+const directMpdUrl = params.get('mpd');
+const clearKeyId = params.get('kid');
+const clearKeyVal = params.get('key');
 
 // DIRECT M3U8 HANDLING
-if (ref) {
+if (directHlsUrl) {
   try {
-    const url = decodeURIComponent(ref);
+    const url = decodeURIComponent(directHlsUrl);
 
     await player.destroy();
     player = null;
@@ -234,15 +238,38 @@ if (ref) {
       console.log("✅ Direct HLS native:", url);
     }
 
-    return; // Stop further logic
+ return; // Stop further logic
   } catch (e) {
-    console.error("Direct ref load failed:", e);
-    alert("Direct stream failed");
+    console.error("Direct HLS load failed:", e);
+    alert("Direct HLS stream failed");
     return;
   }
 }
 
-// ID-Based logic  
+// DIRECT MPD HANDLING
+  if (directMpdUrl) {
+  try {
+    const url = decodeURIComponent(directMpdUrl);
+    
+    // If ClearKeys are provided in the URL, configure Shaka Player
+    if (clearKeyId && clearKeyVal) {
+      player.configure({
+        drm: { clearKeys: { [clearKeyId]: clearKeyVal } },
+        streaming: { lowLatencyMode: true }
+      });
+    }
+
+    await player.load(url);
+    console.log("✅ Direct MPD loaded via URL:", url);
+    return; // Stop further logic so it doesn't fetch the manifest
+    
+  } catch (e) {
+    console.error("Direct MPD load failed. Shaka Error:", e);
+    alert("Direct MPD stream failed. Check console for DRM/Network errors.");
+    return;
+  }
+}
+
 try {
   const response = await fetch("https://ytvs-db.pages.dev/manifest.json", {
     cache: "no-store"
@@ -251,7 +278,7 @@ try {
   if (!response.ok) throw new Error("Links fetch failed");
 
   const streams = await response.json();
-  const stream = streams[id];
+  const stream = streams[streamId];
 
   if (!stream) {
     alert("Invalid stream ID");
@@ -267,7 +294,7 @@ try {
     }
 
     await player.load(stream.url);
-    console.log("✅ DASH loaded:", id);
+    console.log("✅ DASH loaded:");
   }
 
   else if (stream.type === "hls") {
@@ -282,16 +309,16 @@ try {
 
       hls.loadSource(stream.url);
       hls.attachMedia(video);
-      console.log("✅ HLS via hls.js:", id);
+      console.log("✅ HLS via hls.js:");
     } else {
       video.src = stream.url;
-      console.log("✅ HLS native:", id);
+      console.log("✅ HLS native:");
     }
   }
 
 } catch (err) {
   console.error("Stream load failed:", err);
-  alert("Stream temporarily unavailable");
+  alert("Resource temporarily unavailable");
 }
 
   
