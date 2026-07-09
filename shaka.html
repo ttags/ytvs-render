@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ono Video Player</title>
 
@@ -203,8 +204,10 @@ overlay.addEventListener('click', async () => {
 });
 
 video.addEventListener('play', () => overlay.classList.add('hidden'));
-video.addEventListener('pause', () => overlay.classList.remove('hidden'));
-
+video.addEventListener('pause', () => {
+  if (!video.controls) overlay.classList.remove('hidden');
+});
+  
 // Stream Logic - Get ?ref= parameter
 const params = new URLSearchParams(window.location.search);
 const streamId = params.get('ref') || "1";
@@ -217,35 +220,31 @@ const clearKeyVal = params.get('key');
 
 // DIRECT M3U8 HANDLING
 if (directHlsUrl) {
+  const url = decodeURIComponent(directHlsUrl);
+
+  try { await ui.destroy(); } catch (e) { console.warn("UI destroy warning:", e); }
+  try { await player.destroy(); } catch (e) { console.warn("Player destroy warning:", e); }
+  player = null;
+
+  video.controls = true;
+
   try {
-    const url = decodeURIComponent(directHlsUrl);
-
-    await player.destroy();
-    player = null;
-    
     if (Hls.isSupported()) {
-      const hls = new Hls({
-        lowLatencyMode: true,
-        enableWorker: true
-      });
-
+      const hls = new Hls({ lowLatencyMode: true, enableWorker: true });
       hls.loadSource(url);
       hls.attachMedia(video);
-
       console.log("✅ Direct HLS loaded via ref:", url);
     } else {
-      video.src = url; // Safari native HLS
+      video.src = url;
       console.log("✅ Direct HLS native:", url);
     }
-
- return; // Stop further logic
   } catch (e) {
     console.error("Direct HLS load failed:", e);
     alert("Direct HLS stream failed");
-    return;
   }
+  return;
 }
-
+  
 // DIRECT MPD HANDLING
   if (directMpdUrl) {
   try {
@@ -297,16 +296,16 @@ try {
     console.log("✅ DASH loaded:");
   }
 
-  else if (stream.type === "hls") {
-    await player.destroy();
-    player = null;
+else if (stream.type === "hls") {
+  try { await ui.destroy(); } catch (e) { console.warn("UI destroy warning:", e); }
+  try { await player.destroy(); } catch (e) { console.warn("Player destroy warning:", e); }
+  player = null;
 
+  video.controls = true;
+
+  try {
     if (Hls.isSupported()) {
-      const hls = new Hls({
-        lowLatencyMode: true,
-        enableWorker: true
-      });
-
+      const hls = new Hls({ lowLatencyMode: true, enableWorker: true });
       hls.loadSource(stream.url);
       hls.attachMedia(video);
       console.log("✅ HLS via hls.js:");
@@ -314,8 +313,12 @@ try {
       video.src = stream.url;
       console.log("✅ HLS native:");
     }
+  } catch (e) {
+    console.error("HLS load failed:", e);
+    alert("HLS stream failed");
   }
-
+}
+  
 } catch (err) {
   console.error("Stream load failed:", err);
   alert("Resource temporarily unavailable");
