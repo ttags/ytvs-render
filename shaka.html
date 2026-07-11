@@ -6,8 +6,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ono Video Player</title>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js" crossorigin="anonymous"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css" crossorigin="anonymous">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/5.1.13/shaka-player.ui.min.js" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/5.1.13/controls.min.css" crossorigin="anonymous">
+
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
 <style>
@@ -43,36 +44,6 @@
     background: #000;
   }
 
-  /* LIVE Banner */
-  .live-banner {
-    position: absolute;
-    top: 20px;
-    right: 80px;
-    z-index: 10;
-    background: red;
-    color: white;
-    padding: 8px 16px;
-    font-weight: bold;
-    font-size: 16px;
-    border-radius: 4px;
-    text-transform: uppercase;
-    animation: pulse 1s infinite;
-  }
-
-  @keyframes pulse {
-    0%,100% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.1); opacity: 0.8; }
-  }
-
-  /* Logo */
-  .logo {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    z-index: 10;
-    height: 60px;
-  }
-
 /* Bottom-center overlay text */
   #overlay-text {
     position: absolute;
@@ -80,19 +51,18 @@
     left: 50%;
     transform: translateX(-50%);
     color: rgba(255, 255, 255, 0.7);
-    font-size: 1.2vw;
-    min-font-size: 12px;
-    max-font-size: 20px;
+    font-size: 1.5vw;
     font-weight: 600;
-    text-shadow: 1px 1px 4px rgba(0,0,0,0.8);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.6);
     z-index: 10;
     pointer-events: none;
-    font-family: 'Roboto', sans-serif;
+    font-family: sans-serif;
+    letter-spacing: 0.1em;
   }
 
   @media (max-width: 600px) {
     #overlay-text {
-      font-size: 14px;
+      font-size: 16px;
       bottom: 8%;
     }
   }
@@ -118,9 +88,7 @@
 .play-btn {
   width: 90px;
   height: 90px;
-  background: rgba(255, 255, 255, 0.9);
-  color: #000;
-  font-size: 42px;
+  background: #ffffff;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -129,12 +97,13 @@
 }
 
 .play-text {
-  margin-top: 14px;
+  margin-top: 16px;
   color: #fff;
   font-size: 16px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  opacity: 0.85;
+  font-weight: 500;
+  letter-spacing: 0.8px;
+  opacity: 0.9;
+  font-family: sans-serif;
 }
 
   
@@ -143,21 +112,20 @@
 
 <body>
 
-<!-- Logo -->
-<img  src="" alt="Logo">
-
-<!-- LIVE Banner -->
-<div class=""></div>
-
 <!-- Shaka Player Video Container -->
-<div class="shaka-video-container" data-shaka-player>
+<div class="shaka-video-container">
   <video playsinline preload="metadata" poster="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEipwFyueknjbWXtmnGkGVk_HOX3FhyrlrbzdRJmdvF7PCKYbOVYqYov1mCPchehq6dq1giBlDIPABNAxDmjkLfn5fLf4xhtdlHMsPmB2A27zQaR2-rHsu3BS0vYrkCkG2TrUtr-YkF-JTHh7JmDNuhIEbijStkJoVxOVBx2fjibrDlTfssDMiKPCouVUHI/s16000/ONOtv.png"></video>
 </div>
-<div id="overlay-text">OnoTV.me</div>
+
+<div id="overlay-text">ONO TV</div>
   
-  <div id="click-overlay">
-  <div class="play-btn">▶</div>
-  <div class="play-text">Click to Play</div>
+<div id="click-overlay">
+    <div class="play-btn">
+    <svg width="24" height="26" viewBox="0 0 24 28" fill="#000000" style="margin-left: 4px;">
+      <path d="M23 12.3L3.1 0.4c-1-.6-2.2.2-2.2 1.4v23.7c0 1.2 1.3 2 2.2 1.4L23 15.1c.8-.5.8-1.8 0-2.8z"/>
+    </svg>
+  </div>  
+  <div class="play-text">CLICK TO PLAY</div>
 </div>
 
 <!-- 
@@ -165,6 +133,18 @@
   ?hls = direct HLS, no manifest lookup
   -->
   <script>
+
+
+// --- 1. GLOBAL Error handler ---
+function onPlayerError(error) {
+  const code = error && error.code ? error.code : 'UNKNOWN';
+  console.error('Shaka error', error);
+  alert('Stream failed (' + code + ')');
+  // Update the state object for early exit
+  window.streamError = code;
+}
+
+// init and everything else
 document.addEventListener('DOMContentLoaded', async () => {
   shaka.polyfill.installAll();
 
@@ -178,6 +158,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const container = document.querySelector('.shaka-video-container');
   const ui = new shaka.ui.Overlay(player, container, video);
+
+  player.addEventListener('error', (event) => onPlayerError(event.detail));
+  ui.getControls().addEventListener('error', (event) => onPlayerError(event.detail));
 
   ui.configure({
     controlPanelElements: [
@@ -230,7 +213,14 @@ if (directHlsUrl) {
 
   try {
     if (Hls.isSupported()) {
-      const hls = new Hls({ lowLatencyMode: true, enableWorker: true });
+    
+    const hls = new Hls({
+    lowLatencyMode: false,
+    enableWorker: true,
+    maxBufferLength: 30,
+    backBufferLength: 30
+    });
+
       hls.loadSource(url);
       hls.attachMedia(video);
       console.log("✅ Direct HLS loaded via ref:", url);
@@ -254,17 +244,22 @@ if (directHlsUrl) {
     if (clearKeyId && clearKeyVal) {
       player.configure({
         drm: { clearKeys: { [clearKeyId]: clearKeyVal } },
-        streaming: { lowLatencyMode: true }
+        streaming: { 
+        lowLatencyMode: false,
+        bufferingGoal: 20,    // Keeps a 20-second buffer ahead
+        rebufferingGoal: 2,   // Only needs 2 seconds of data to resume after buffering
+        bufferBehind: 20      // Keeps 20 seconds of video in memory for rewinding/stability
+     }
       });
     }
 
     await player.load(url);
+    await video.play().catch(() => {});
     console.log("✅ Direct MPD loaded via URL:", url);
     return; // Stop further logic so it doesn't fetch the manifest
     
   } catch (e) {
-    console.error("Direct MPD load failed. Shaka Error:", e);
-    alert("Direct MPD stream failed. Check console for DRM/Network errors.");
+    onPlayerError(e);
     return;
   }
 }
@@ -288,11 +283,17 @@ try {
     if (stream.keyId && stream.key) {
       player.configure({
         drm: { clearKeys: { [stream.keyId]: stream.key } },
-        streaming: { lowLatencyMode: true }
+        streaming: { 
+        lowLatencyMode: false,
+        bufferingGoal: 20,    // Keeps a 20-second buffer ahead
+        rebufferingGoal: 2,   // Only needs 2 seconds of data to resume after buffering
+        bufferBehind: 20      // Keeps 20 seconds of video in memory for rewinding/stability
+    }
       });
     }
 
     await player.load(stream.url);
+    await video.play().catch(() => {});
     console.log("✅ DASH loaded:");
   }
 
@@ -305,7 +306,14 @@ else if (stream.type === "hls") {
 
   try {
     if (Hls.isSupported()) {
-      const hls = new Hls({ lowLatencyMode: true, enableWorker: true });
+    
+    const hls = new Hls({
+    lowLatencyMode: false,
+    enableWorker: true,
+    maxBufferLength: 30,
+    backBufferLength: 30
+    });
+
       hls.loadSource(stream.url);
       hls.attachMedia(video);
       console.log("✅ HLS via hls.js:");
@@ -324,6 +332,15 @@ else if (stream.type === "hls") {
   alert("Resource temporarily unavailable");
 }
 
+if ('wakeLock' in navigator) {
+  try {
+    navigator.wakeLock.request('screen').then(() => {
+      console.log("🔒 Screen Wake Lock is active");
+    });
+  } catch (err) {
+    console.warn(`Wake Lock failed: ${err.message}`);
+  }
+}
   
 });
 </script>
