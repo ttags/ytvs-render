@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-
+<meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ono Video Player</title>
 
@@ -140,7 +140,7 @@
     position: absolute;
     top: 20px;
     right: 20px;
-    z-index: 15;
+    z-index: 9999;
     display: none;
     align-items: center;
     gap: 6px;
@@ -182,6 +182,13 @@
 
 <div id="overlay-text">ONO TV</div>
 
+
+<div id="subtle-loader" style="position:absolute; inset:0; background:rgba(0,0,0,0.5); display:none; flex-direction:column; align-items:center; justify-content:center; z-index:25; color:#fff; font-family:sans-serif; gap:12px;">
+  <div style="width:40px; height:40px; border:4px solid rgba(255,255,255,0.2); border-top-color:#ff3b30; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
+  <div id="subtle-loader-text" style="font-size:14px; opacity:0.9;">Loading...</div>
+</div>
+<style> @keyframes spin { to { transform: rotate(360deg); } }</style>
+  
 <div id="status-overlay">
   <h2 id="status-title">Playback Error</h2>
   <p id="status-msg">The stream has encountered an issue.</p>
@@ -201,10 +208,9 @@
   <div class="play-text">CLICK TO PLAY</div>
 </div>
 
-<!-- 
-  ?ref = manifest file lookup for DASH or HLS
-  ?hls = direct HLS, no manifest lookup
-  -->
+
+
+  
   <script>
 
 
@@ -250,8 +256,42 @@ document.addEventListener('DOMContentLoaded', async () => {
   const container = document.querySelector('.shaka-video-container');
   const ui = new shaka.ui.Overlay(player, container, video);
 
-  player.addEventListener('error', (event) => onPlayerError(event.detail));
-  ui.getControls().addEventListener('error', (event) => onPlayerError(event.detail));
+  let recoverableTimeout = null;
+
+function showReconnecting() {
+  const loader = document.getElementById('subtle-loader');
+  const loaderText = document.getElementById('subtle-loader-text');
+  if (loader) {
+    loaderText.textContent = 'Reconnecting...';
+    loader.style.display = 'flex';
+  }
+  // Auto-hide safety net in case no success/failure event ever arrives
+  clearTimeout(recoverableTimeout);
+  recoverableTimeout = setTimeout(hideReconnecting, 8000);
+}
+
+function hideReconnecting() {
+  const loader = document.getElementById('subtle-loader');
+  if (loader) loader.style.display = 'none';
+  clearTimeout(recoverableTimeout);
+}
+  
+player.addEventListener('error', (event) => {
+    // If Shaka can recover, just log it and let it do its thing behind the scenes
+    if (event.detail && event.detail.severity === shaka.util.Error.Severity.RECOVERABLE) {
+      console.warn('Recoverable Shaka error (retrying...):', event.detail);
+      showReconnecting();
+      return; 
+    }
+    // Only trigger the overlay for CRITICAL, non-recoverable errors
+    hideReconnecting();
+    onPlayerError(event.detail);
+  });
+
+  ui.getControls().addEventListener('error', (event) => {
+    if (event.detail && event.detail.severity === shaka.util.Error.Severity.RECOVERABLE) return;
+    onPlayerError(event.detail);
+  });
   video.addEventListener('error', (e) => onPlayerError(video.error ? video.error.code : 'Native_Video_Error'));
 
   ui.configure({
@@ -278,9 +318,7 @@ overlay.addEventListener('click', async () => {
 });
 
 video.addEventListener('play', () => overlay.classList.add('hidden'));
-video.addEventListener('pause', () => {
-  if (!video.controls) overlay.classList.remove('hidden');
-});
+video.addEventListener('playing', hideReconnecting);
   
 // Stream Logic - Get ?ref= parameter
 const params = new URLSearchParams(window.location.search);
@@ -328,6 +366,7 @@ if (directHlsUrl) {
       if (hlsRetryCount < 3) {
         hlsRetryCount++;
         console.warn(`HLS network error, retrying... (${hlsRetryCount}/3)`);
+        showReconnecting();  
         hls.startLoad();
       } else {
         onPlayerError({ code: 'HLS_NETWORK_EXHAUSTED', message: 'Max retries reached' });
@@ -363,36 +402,59 @@ if (directHlsUrl) {
 }
   
 // DIRECT MPD HANDLING
-  if (directMpdUrl) {
+if (directMpdUrl) {
   try {
     const url = decodeURIComponent(directMpdUrl);
     
-    // If ClearKeys are provided in the URL, configure Shaka Player
+    // Configurable retry params for aggressive network fallback
+    const resilientRetryConfig = { 
+      maxAttempts: 10,
+      baseDelay: 500, 
+      backoffFactor: 1.5, 
+      timeout: 30000, 
+      fuzzFactor: 0.5 
+    };
+
+    // Global configuration structure
+    const config = {
+      abr: {
+        enabled: true,
+        restrictToElementSize: true
+      },
+      manifest: {
+        retryParameters: resilientRetryConfig,
+        defaultPresentationDelay: 12, 
+          dash: { 
+            ignoreSuggestedPresentationDelay: true, // Forces Shaka to ignore the server's setting
+            autoCorrectDrift: true 
+              }
+      },
+      streaming: { 
+        lowLatencyMode: false,
+        bufferingGoal: 30,    
+        rebufferingGoal: 4,   
+        bufferBehind: 20,
+        jumpLargeGaps: true,
+        gapDetectionThreshold: 0.5,
+        stallEnabled: true,
+        stallThreshold: 1,
+        retryParameters: resilientRetryConfig
+      }
+    };
+
+    // Add DRM configuration if keys exist in URL query params
     if (clearKeyId && clearKeyVal) {
-      player.configure({
-        drm: { clearKeys: { [clearKeyId]: clearKeyVal } },
-        abr: {
-          enabled: true,
-          restrictToElementSize: true
-        },
-        streaming: { 
-          lowLatencyMode: false,
-          bufferingGoal: 30,    
-          rebufferingGoal: 4,   
-          bufferBehind: 20,
-          jumpLargeGaps: true,
-          gapDetectionThreshold: 0.5,
-          stallEnabled: true,
-          stallThreshold: 1,
-          retryParameters: { maxAttempts: 6, baseDelay: 500, backoffFactor: 1.6, timeout: 30000, fuzzFactor: 0.5 }
-        }
-      });
+      config.drm = { 
+        clearKeys: { [clearKeyId]: clearKeyVal },
+        retryParameters: resilientRetryConfig
+      };
     }
 
+    player.configure(config);
     await player.load(url);
     await video.play().catch(() => {});
     console.log("✅ Direct MPD loaded via URL:", url);
-    return; // Stop further logic so it doesn't fetch the manifest
+    return;
     
   } catch (e) {
     onPlayerError(e);
@@ -416,32 +478,54 @@ try {
   }
 
   if (stream.type === "dash") {
+    const resilientRetryConfig = { 
+      maxAttempts: 10,
+      baseDelay: 500, 
+      backoffFactor: 1.5, 
+      timeout: 30000, 
+      fuzzFactor: 0.5 
+    };
+    
+    const config = {
+      abr: {
+        enabled: true,
+        restrictToElementSize: true
+      },
+      manifest: {
+        retryParameters: resilientRetryConfig,
+        defaultPresentationDelay: 12, 
+          dash: { 
+            ignoreSuggestedPresentationDelay: true, // Forces Shaka to ignore the server's setting
+            autoCorrectDrift: true 
+              }
+      },
+      streaming: { 
+        lowLatencyMode: false,
+        bufferingGoal: 30,    
+        rebufferingGoal: 4,   
+        bufferBehind: 20,
+        jumpLargeGaps: true,
+        gapDetectionThreshold: 0.5,
+        stallEnabled: true,
+        stallThreshold: 1,
+        retryParameters: resilientRetryConfig
+      }
+    };
+
+    // Correctly reference 'stream.keyId' and 'stream.key' here instead of URL params
     if (stream.keyId && stream.key) {
-      player.configure({
-        drm: { clearKeys: { [stream.keyId]: stream.key } },
-        abr: {
-          enabled: true,
-          restrictToElementSize: true
-        },
-        streaming: { 
-          lowLatencyMode: false,
-          bufferingGoal: 30,    
-          rebufferingGoal: 4,   
-          bufferBehind: 20,
-          jumpLargeGaps: true,
-          gapDetectionThreshold: 0.5,
-          stallEnabled: true,
-          stallThreshold: 1,
-          retryParameters: { maxAttempts: 6, baseDelay: 500, backoffFactor: 1.6, timeout: 30000, fuzzFactor: 0.5}
-        }
-      });
+      config.drm = { 
+        clearKeys: { [stream.keyId]: stream.key },
+        retryParameters: resilientRetryConfig
+      };
     }
 
+    player.configure(config);
     await player.load(stream.url);
     await video.play().catch(() => {});
     console.log("✅ DASH loaded:");
   }
-
+    
 else if (stream.type === "hls") {
   try { await ui.destroy(); } catch (e) { console.warn("UI destroy warning:", e); }
   try { await player.destroy(); } catch (e) { console.warn("Player destroy warning:", e); }
@@ -475,6 +559,7 @@ else if (stream.type === "hls") {
       if (hlsRetryCount < 3) {
         hlsRetryCount++;
         console.warn(`HLS network error, retrying... (${hlsRetryCount}/3)`);
+        showReconnecting();  
         hls.startLoad();
       } else {
         onPlayerError({ code: 'HLS_NETWORK_EXHAUSTED', message: 'Max retries reached' });
