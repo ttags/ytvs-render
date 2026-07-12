@@ -76,7 +76,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  z-index: 20;
+  z-index: 26;
   cursor: pointer;
   transition: opacity 0.3s ease;
 }
@@ -178,7 +178,6 @@
 <!-- Shaka Player Video Container -->
 <div class="shaka-video-container">
   <video playsinline preload="metadata" poster="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEipwFyueknjbWXtmnGkGVk_HOX3FhyrlrbzdRJmdvF7PCKYbOVYqYov1mCPchehq6dq1giBlDIPABNAxDmjkLfn5fLf4xhtdlHMsPmB2A27zQaR2-rHsu3BS0vYrkCkG2TrUtr-YkF-JTHh7JmDNuhIEbijStkJoVxOVBx2fjibrDlTfssDMiKPCouVUHI/s16000/ONOtv.png"></video>
-</div>
 
 <div id="overlay-text">ONO TV</div>
 
@@ -209,7 +208,7 @@
 </div>
 
 
-
+</div>
   
   <script>
 
@@ -267,7 +266,7 @@ function showReconnecting() {
   }
   // Auto-hide safety net in case no success/failure event ever arrives
   clearTimeout(recoverableTimeout);
-  recoverableTimeout = setTimeout(hideReconnecting, 8000);
+  recoverableTimeout = setTimeout(hideReconnecting, 12000);
 }
 
 function hideReconnecting() {
@@ -319,6 +318,10 @@ overlay.addEventListener('click', async () => {
 
 video.addEventListener('play', () => overlay.classList.add('hidden'));
 video.addEventListener('playing', hideReconnecting);
+player.addEventListener('buffering', (event) => {
+    if (event.buffering) showReconnecting();
+    else hideReconnecting();
+  });
   
 // Stream Logic - Get ?ref= parameter
 const params = new URLSearchParams(window.location.search);
@@ -408,7 +411,7 @@ if (directMpdUrl) {
     
     // Configurable retry params for aggressive network fallback
     const resilientRetryConfig = { 
-      maxAttempts: 10,
+      maxAttempts: 6,
       baseDelay: 500, 
       backoffFactor: 1.5, 
       timeout: 30000, 
@@ -479,7 +482,7 @@ try {
 
   if (stream.type === "dash") {
     const resilientRetryConfig = { 
-      maxAttempts: 10,
+      maxAttempts: 6,
       baseDelay: 500, 
       backoffFactor: 1.5, 
       timeout: 30000, 
@@ -645,7 +648,7 @@ if ('wakeLock' in navigator) {
     } catch (err) { /* Silent ignore if seekRange isn't ready */ }
 
     // Check For Stalled Playback Frames
-    if (video.paused || video.ended || video.readyState < 2) {
+    if (video.paused || video.ended || video.readyState < 3) {
       if (video) lastTrackedTime = video.currentTime;
       return;
     }
