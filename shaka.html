@@ -170,6 +170,23 @@
     opacity: 0.8;
   }
   
+  .error-actions {
+    margin-top: 20px;
+  }
+  
+  .error-btn {
+    padding: 10px 20px;
+    background: #0071e3;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-family: sans-serif;
+  }
+  
 </style>
 </head>
 
@@ -191,6 +208,9 @@
 <div id="status-overlay">
   <h2 id="status-title">Playback Error</h2>
   <p id="status-msg">The stream has encountered an issue.</p>
+  <div class="error-actions">
+    <button id="btn-refresh" class="error-btn">Retry</button>
+  </div>
 </div>
 
 <div id="live-indicator" title="Click to sync back to live edge">
@@ -240,6 +260,7 @@ function onPlayerError(error) {
   }
 }
 
+
 // init and everything else
 document.addEventListener('DOMContentLoaded', async () => {
   shaka.polyfill.installAll();
@@ -256,6 +277,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const ui = new shaka.ui.Overlay(player, container, video);
 
   let recoverableTimeout = null;
+
+  const refreshBtn = document.getElementById('btn-refresh');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      window.location.reload();
+    });
+  }
 
 function showReconnecting() {
   const loader = document.getElementById('subtle-loader');
@@ -308,13 +336,22 @@ player.addEventListener('error', (event) => {
 const overlay = document.getElementById('click-overlay');
 
 overlay.addEventListener('click', async () => {
-  try {
-    await video.play(); 
-    overlay.classList.add('hidden');
-  } catch (err) {
-    console.error("User play failed:", err);
-  }
-});
+    try {
+      await video.play(); 
+      overlay.classList.add('hidden');
+
+      if ('wakeLock' in navigator) {
+        try {
+          await navigator.wakeLock.request('screen');
+          console.log("🔒 Screen Wake Lock is active");
+        } catch (err) {
+          console.warn(`Wake Lock failed: ${err.message}`);
+        }
+      }
+    } catch (err) {
+      console.error("User play failed:", err);
+    }
+  });
 
 video.addEventListener('play', () => overlay.classList.add('hidden'));
 video.addEventListener('playing', hideReconnecting);
@@ -401,11 +438,10 @@ if (directHlsUrl) {
     console.error("Direct HLS load failed:", e);
     onPlayerError("Direct_HLS_stream_failed");
   }
-  return;
 }
-  
+
 // DIRECT MPD HANDLING
-if (directMpdUrl) {
+else if (directMpdUrl) {
   try {
     const url = decodeURIComponent(directMpdUrl);
     
@@ -457,14 +493,12 @@ if (directMpdUrl) {
     await player.load(url);
     await video.play().catch(() => {});
     console.log("✅ Direct MPD loaded via URL:", url);
-    return;
-    
   } catch (e) {
     onPlayerError(e);
-    return;
   }
 }
-
+// FALLBACK MANIFEST FETCH HANDLING
+else {
 try {
   const response = await fetch("https://ytvs-db.pages.dev/manifest.json", {
     cache: "no-store"
@@ -600,15 +634,6 @@ else if (stream.type === "hls") {
   console.error("Stream load failed:", err);
   onPlayerError("Resource_temporarily_unavailable");
 }
-
-if ('wakeLock' in navigator) {
-  try {
-    navigator.wakeLock.request('screen').then(() => {
-      console.log("🔒 Screen Wake Lock is active");
-    });
-  } catch (err) {
-    console.warn(`Wake Lock failed: ${err.message}`);
-  }
 }
 
 // Live Edge Sync Action Listener
