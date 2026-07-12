@@ -1,681 +1,369 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="referrer" content="no-referrer">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ono Video Player</title>
+<title>D3X Sports // Stream 2</title>
 
-<script src="https://cdn.jsdelivr.net/npm/shaka-player@5.1.13/dist/shaka-player.ui.min.js" crossorigin="anonymous"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shaka-player@5.1.13/dist/controls.min.css" crossorigin="anonymous">
-
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<!-- Shaka Player 5.1.8 (best DASH + DRM support) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shaka-player@5.1.8/dist/controls.css">
+<!-- Kanit font for the watermark (bold italic sports style) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,600;0,800;1,600;1,800&display=swap" rel="stylesheet">
 
 <style>
-  html, body {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    background: #000;
-    overflow: hidden;
-  }
+/* ---------- Base ---------- */
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:'Segoe UI',Roboto,sans-serif;-webkit-user-select:none;user-select:none}
+.shaka-video-container{position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center}
+video{width:100%;height:100%;object-fit:contain;background:#000}
 
-  .shaka-video-container {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-  }
+/* Hide default Shaka spinner, use our own */
+.shaka-spinner-container,.shaka-spinner,.shaka-spinner-svg{display:none!important}
+.shaka-controls-container button{color:#fff!important}
 
-  .shaka-spinner-container,
-.shaka-spinner,
-.shaka-spinner-svg {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
+/* ---------- Custom loading spinner ---------- */
+#loader{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:9;opacity:0;pointer-events:none;transition:opacity .2s}
+#loader.on{opacity:1}
+.spin{width:44px;height:44px;border:4px solid rgba(255,255,255,.2);border-top-color:#f5b301;border-radius:50%;animation:sp .8s linear infinite}
+#loaderTxt{color:#fff;font-size:13px;letter-spacing:.5px;opacity:.85}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* ---------- Status / error overlay ---------- */
+#status{position:absolute;inset:0;background:rgba(0,0,0,.82);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:12;text-align:center;padding:24px}
+#status.on{display:flex}
+#status h2{color:#fff;font-size:18px;font-weight:600}
+#status p{color:#bbb;font-size:13px;max-width:420px;line-height:1.5}
+#status button{background:#f5b301;color:#111;border:0;padding:11px 26px;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;letter-spacing:.5px}
+#status button:hover{background:#ffc21f}
+
+/* ---------- LIVE badge (click to jump to live edge) ---------- */
+#live{position:absolute;top:16px;left:16px;z-index:6;display:none;align-items:center;gap:7px;background:rgba(0,0,0,.55);padding:6px 12px;border-radius:6px;cursor:pointer;transition:opacity .25s, top .25s}
+#live.show{display:flex}
+#live .dot{width:9px;height:9px;border-radius:50%;background:#ff3b30;box-shadow:0 0 0 0 rgba(255,59,48,.7);animation:pulse 1.8s infinite}
+#live.behind .dot{background:#888;animation:none}
+#live span{color:#fff;font-size:12px;font-weight:700;letter-spacing:1px}
+#live.behind span{color:#ccc}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,59,48,.7)}70%{box-shadow:0 0 0 7px rgba(255,59,48,0)}100%{box-shadow:0 0 0 0 rgba(255,59,48,0)}}
+
+/* ---------- D3X Sports watermark (lower-middle) ---------- */
+#wm{
+  position:absolute;
+  left:50%;
+  bottom:14px;
+  transform:translateX(-50%);
+  z-index:5;
+  pointer-events:none;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:1px;
+  opacity:.55;
+  filter:drop-shadow(0 2px 5px rgba(0,0,0,.9));
+  transition:opacity .25s, bottom .25s;
 }
-
-
-  video {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    background: #000;
-  }
-
-
-/* Bottom-center overlay text */
-  #overlay-text {
-    position: absolute;
-    bottom: 5%;
-    left: 50%;
-    transform: translateX(-50%);
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 1.5vw;
-    font-weight: 600;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.6);
-    z-index: 10;
-    pointer-events: none;
-    font-family: sans-serif;
-    letter-spacing: 0.1em;
-  }
-
-  @media (max-width: 600px) {
-    #overlay-text {
-      font-size: 16px;
-      bottom: 8%;
-    }
-  }
-
-  #click-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 26;
-  cursor: pointer;
-  transition: opacity 0.3s ease;
+.wm-logo{
+  font-family:'Kanit','Segoe UI',sans-serif;
+  font-weight:800;
+  font-style:italic;
+  font-size:22px;
+  line-height:1;
+  letter-spacing:.5px;
+  white-space:nowrap;
+  text-transform:uppercase;
 }
-
-#click-overlay.hidden {
-  opacity: 0;
-  pointer-events: none;
+.wm-logo .d3x{color:#fff}
+.wm-logo .sports{color:#f5b301;margin-left:.12em}
+.wm-url{
+  font-family:'Kanit','Segoe UI',sans-serif;
+  font-weight:600;
+  font-style:italic;
+  font-size:10.5px;
+  letter-spacing:1.5px;
+  color:#fff;
+  opacity:.9;
+  white-space:nowrap;
+  text-transform:lowercase;
 }
+/* Lift watermark above the control bar when controls are visible */
+.controls-visible #wm{bottom:62px;opacity:.4}
 
-.play-btn {
-  width: 90px;
-  height: 90px;
-  background: #ffffff;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+/* Small screens: shrink watermark */
+@media (max-width:600px){
+  .wm-logo{font-size:16px}
+  .wm-url{font-size:8.5px;letter-spacing:1px}
+  #live span{font-size:11px}
 }
-
-.play-text {
-  margin-top: 16px;
-  color: #fff;
-  font-size: 16px;
-  font-weight: 500;
-  letter-spacing: 0.8px;
-  opacity: 0.9;
-  font-family: sans-serif;
-}
-
-/* Error Status Overlay */
-  #status-overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.85);
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    z-index: 30;
-    color: #fff;
-    font-family: sans-serif;
-    padding: 20px;
-    text-align: center;
-  }
-  #status-overlay.active {
-    display: flex;
-  }
-  #status-overlay h2 {
-    font-size: 20px;
-    margin-bottom: 10px;
-    color: #ff3b30;
-  }
-  #status-overlay p {
-    font-size: 14px;
-    color: #ccc;
-  }
-
-  /* Live Tracking Badge Indicator */
-  #live-indicator {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    z-index: 9999;
-    display: none;
-    align-items: center;
-    gap: 6px;
-    background: rgba(0, 0, 0, 0.6);
-    padding: 6px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-family: sans-serif;
-    font-size: 12px;
-    font-weight: bold;
-    color: #fff;
-    letter-spacing: 0.5px;
-  }
-  #live-indicator.visible {
-    display: flex;
-  }
-  #live-indicator .dot {
-    width: 8px;
-    height: 8px;
-    background: #ff3b30;
-    border-radius: 50%;
-  }
-  #live-indicator.behind .dot {
-    background: #8e8e93;
-  }
-  #live-indicator.behind {
-    opacity: 0.8;
-  }
-  
 </style>
 </head>
-
 <body>
+<div class="shaka-video-container" id="pc">
+  <!-- Video -->
+  <video id="v" autoplay playsinline muted preload="auto"></video>
 
-<!-- Shaka Player Video Container -->
-<div class="shaka-video-container">
-  <video playsinline preload="metadata" poster="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEipwFyueknjbWXtmnGkGVk_HOX3FhyrlrbzdRJmdvF7PCKYbOVYqYov1mCPchehq6dq1giBlDIPABNAxDmjkLfn5fLf4xhtdlHMsPmB2A27zQaR2-rHsu3BS0vYrkCkG2TrUtr-YkF-JTHh7JmDNuhIEbijStkJoVxOVBx2fjibrDlTfssDMiKPCouVUHI/s16000/ONOtv.png"></video>
+  <!-- LIVE badge -->
+  <div id="live" title="Jump to live"><span class="dot"></span><span>LIVE</span></div>
 
-<div id="overlay-text">ONO TV</div>
+  <!-- Watermark -->
+  <div id="wm">
+    <div class="wm-logo"><span class="d3x">YoNoTV</span><span class="sports">Sports</span></div>
+    <div class="wm-url">yonotv.net</div>
+  </div>
 
+  <!-- Loading spinner -->
+  <div id="loader"><div class="spin"></div><div id="loaderTxt">Loading stream…</div></div>
 
-<div id="subtle-loader" style="position:absolute; inset:0; background:rgba(0,0,0,0.5); display:none; flex-direction:column; align-items:center; justify-content:center; z-index:25; color:#fff; font-family:sans-serif; gap:12px;">
-  <div style="width:40px; height:40px; border:4px solid rgba(255,255,255,0.2); border-top-color:#ff3b30; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
-  <div id="subtle-loader-text" style="font-size:14px; opacity:0.9;">Loading...</div>
-</div>
-<style> @keyframes spin { to { transform: rotate(360deg); } }</style>
-  
-<div id="status-overlay">
-  <h2 id="status-title">Playback Error</h2>
-  <p id="status-msg">The stream has encountered an issue.</p>
-</div>
-
-<div id="live-indicator" title="Click to sync back to live edge">
-  <div class="dot"></div>
-  <span>LIVE</span>
-</div>
-
-<div id="click-overlay">
-    <div class="play-btn">
-    <svg width="24" height="26" viewBox="0 0 24 28" fill="#000000" style="margin-left: 4px;">
-      <path d="M23 12.3L3.1 0.4c-1-.6-2.2.2-2.2 1.4v23.7c0 1.2 1.3 2 2.2 1.4L23 15.1c.8-.5.8-1.8 0-2.8z"/>
-    </svg>
-  </div>  
-  <div class="play-text">CLICK TO PLAY</div>
+  <!-- Status / error overlay -->
+  <div id="status">
+    <h2 id="statusTitle">Connection lost</h2>
+    <p id="statusMsg">We're trying to reconnect to the stream.</p>
+    <button id="statusBtn">Reload</button>
+  </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/shaka-player@5.1.8/dist/shaka-player.ui.min.js"></script>
+<script>
+/* =======================================================
+   >>> TEST SWITCH <
+   TEST_MODE = true  -> free public DASH sample (no DRM)
+   TEST_MODE = false -> real D3X Sports live stream.
+======================================================= */
+const TEST_MODE = false;
 
-</div>
-  
-  <script>
+/* ---------- Stream + DRM ---------- */
+const REAL_STREAM_URL = "https://otte.cache.aiv-cdn.net/bom-nitro/live/clients/dash/enc/72sjo8hygl/out/v1/3079be34d72a4985852d299a02406a0c/cenc.mpd";
+const REAL_KEY_ID = "d185684e2330de5bea436daa094a5e86";
+const REAL_KEY    = "014f0116154f5bf0050e03a6b0a23157";
+const TEST_STREAM_URL = "https://storage.googleapis.com/shaka-demo-assets/angel-one/dash.mpd";
 
+const STREAM_URL = TEST_MODE ? TEST_STREAM_URL : REAL_STREAM_URL;
+const KEY_ID     = TEST_MODE ? "" : REAL_KEY_ID;
+const KEY        = TEST_MODE ? "" : REAL_KEY;
 
-// --- 1. GLOBAL Error handler ---
-function onPlayerError(error) {
-  let code = 'UNKNOWN_ERROR';
-  let msg = 'An unexpected error occurred.';
+/* ---------- Tunables (safe to adjust) ---------- */
+const PRESENTATION_DELAY   = 12;   // seconds behind live edge — more = smoother, less = closer to live
+const BUFFERING_GOAL       = 30;   // seconds of buffer to build ahead
+const REBUFFERING_GOAL     = 4;    // seconds of buffer needed before resuming after a stall
+const BUFFER_BEHIND        = 30;   // seconds of buffer kept behind playhead
+const LIVE_EDGE_TOLERANCE  = 20;   // if we fall more than this behind live, badge shows "BEHIND"
+const MAX_AUTO_RELOADS     = 6;    // auto-reconnect attempts before giving up
+/* ======================================================= */
 
-  if (typeof error === 'string') {
-    code = error;
-    msg = 'Internal player state exception';
-  } else if (typeof error === 'number') {
-    code = `NATIVE_VIDEO_ERR_${error}`;
-    msg = 'HTML5 Video Element media error status';
-  } else if (error && typeof error === 'object') {
-    code = error.code || 'OBJECT_ERROR';
-    msg = error.message || 'No contextual message provided';
+let player, videoEl, container, loader, loaderTxt, statusEl, statusTitle, statusMsg, statusBtn, liveBadge;
+let autoReloads = 0;
+let reloadTimer = null;
+let watchdogTimer = null;
+
+/* ---------- Error handling ---------- */
+function describeError(error){
+  let msg = `Error code: ${error.code}`;
+  if (!error.category) return msg;
+  if (error.category === shaka.util.Error.Category.NETWORK)  msg += " (Network)";
+  else if (error.category === shaka.util.Error.Category.DRM) msg += " (DRM / decryption key)";
+  else if (error.category === shaka.util.Error.Category.MANIFEST) msg += " (Manifest)";
+  return msg;
+}
+
+function onPlayerErrorEvent(event){ handleError(event.detail); }
+
+function handleError(error){
+  console.error("PLAYER ERROR:", describeError(error), error);
+  if (error.code === 6001 || error.code === 6007 || error.code === 6013){
+    showStatus("Stream is encrypted", "The decryption key is missing or incorrect. Please check the player configuration.", "Retry");
+    return;
   }
+  scheduleAutoReload();
+}
 
-  console.error('Terminal Player Error Registered:', error);
-  window.streamError = code;
-  
-  const statusOverlay = document.getElementById('status-overlay');
-  const statusMsg = document.getElementById('status-msg');
-  if (statusOverlay && statusMsg) {
-    statusMsg.textContent = `Stream error: ${code} (${msg})`;
-    statusOverlay.classList.add('active');
+/* ---------- Auto-reconnect with backoff ---------- */
+function scheduleAutoReload(){
+  if (reloadTimer) return;
+  if (autoReloads >= MAX_AUTO_RELOADS){
+    showStatus("Can't reach the stream", "The stream may be offline or your connection dropped. Tap reload to try again.", "Reload");
+    return;
+  }
+  autoReloads++;
+  const delay = Math.min(1000 * Math.pow(1.6, autoReloads), 8000);
+  loaderTxt.textContent = `Reconnecting… (${autoReloads}/${MAX_AUTO_RELOADS})`;
+  loader.classList.add("on");
+  reloadTimer = setTimeout(async () => {
+    reloadTimer = null;
+    await loadStream();
+  }, delay);
+}
+
+function showStatus(title, msg, btnText){
+  loader.classList.remove("on");
+  statusTitle.textContent = title;
+  statusMsg.textContent = msg;
+  statusBtn.textContent = btnText || "Reload";
+  statusEl.classList.add("on");
+}
+function hideStatus(){ statusEl.classList.remove("on"); }
+
+/* ---------- Live-edge helpers ---------- */
+function seekToLive(){
+  try{
+    if (player.isLive()){
+      videoEl.currentTime = player.seekRange().end;
+      videoEl.play().catch(()=>{});
+    }
+  }catch(e){}
+}
+
+function updateLiveBadge(){
+  if (!player || !player.isLive()){ liveBadge.classList.remove("show"); return; }
+  liveBadge.classList.add("show");
+  try{
+    const behind = player.seekRange().end - videoEl.currentTime;
+    liveBadge.classList.toggle("behind", behind > LIVE_EDGE_TOLERANCE);
+  }catch(e){}
+}
+
+/* ---------- Stall watchdog ---------- */
+function startWatchdog(){
+  let lastTime = -1, stalls = 0;
+  clearInterval(watchdogTimer);
+  watchdogTimer = setInterval(() => {
+    updateLiveBadge();
+    if (videoEl.paused || videoEl.ended || videoEl.readyState < 2) { lastTime = videoEl.currentTime; return; }
+    if (Math.abs(videoEl.currentTime - lastTime) < 0.01){
+      stalls++;
+      if (stalls >= 4){
+        console.warn("Watchdog: playback frozen, jumping to live edge.");
+        seekToLive();
+        stalls = 0;
+      }
+    } else { stalls = 0; }
+    lastTime = videoEl.currentTime;
+  }, 1000);
+}
+
+/* ---------- Keyboard shortcuts ---------- */
+function bindKeys(){
+  document.addEventListener("keydown", (e) => {
+    switch (e.key.toLowerCase()){
+      case " ": case "k": e.preventDefault(); videoEl.paused ? videoEl.play() : videoEl.pause(); break;
+      case "f": document.fullscreenElement ? document.exitFullscreen() : container.requestFullscreen(); break;
+      case "m": videoEl.muted = !videoEl.muted; break;
+      case "l": seekToLive(); break;
+      case "arrowup":   e.preventDefault(); videoEl.volume = Math.min(1, videoEl.volume + 0.1); break;
+      case "arrowdown": e.preventDefault(); videoEl.volume = Math.max(0, videoEl.volume - 0.1); break;
+    }
+  });
+}
+
+/* ---------- Load / reload the stream ---------- */
+async function loadStream(){
+  hideStatus();
+  loaderTxt.textContent = autoReloads ? `Reconnecting… (${autoReloads}/${MAX_AUTO_RELOADS})` : "Loading stream…";
+  loader.classList.add("on");
+  try{
+    await player.load(STREAM_URL);
+    autoReloads = 0;
+    loader.classList.remove("on");
+    hideStatus();
+    if (player.isLive()) seekToLive();
+    try { await videoEl.play(); } catch(e){ console.warn("Autoplay prevented:", e); }
+    updateLiveBadge();
+  }catch(e){
+    handleError(e);
   }
 }
 
-// init and everything else
-document.addEventListener('DOMContentLoaded', async () => {
+/* ---------- Boot ---------- */
+document.addEventListener("DOMContentLoaded", async () => {
   shaka.polyfill.installAll();
-
-  if (!shaka.Player.isBrowserSupported()) {
-    onPlayerError('Browser_Unsupported');
+  if (!shaka.Player.isBrowserSupported()){
+    document.body.innerHTML = "<div style='color:#fff;padding:40px;font:16px sans-serif'>Your browser is not supported. Please use an up-to-date Chrome, Edge or Firefox.</div>";
     return;
   }
 
-  const video = document.querySelector('video');
-  let player = new shaka.Player(video);
+  videoEl     = document.getElementById("v");
+  container   = document.getElementById("pc");
+  loader      = document.getElementById("loader");
+  loaderTxt   = document.getElementById("loaderTxt");
+  statusEl    = document.getElementById("status");
+  statusTitle = document.getElementById("statusTitle");
+  statusMsg   = document.getElementById("statusMsg");
+  statusBtn   = document.getElementById("statusBtn");
+  liveBadge   = document.getElementById("live");
 
-  const container = document.querySelector('.shaka-video-container');
-  const ui = new shaka.ui.Overlay(player, container, video);
+  player = new shaka.Player();
+  await player.attach(videoEl);
 
-  let recoverableTimeout = null;
-
-function showReconnecting() {
-  const loader = document.getElementById('subtle-loader');
-  const loaderText = document.getElementById('subtle-loader-text');
-  if (loader) {
-    loaderText.textContent = 'Reconnecting...';
-    loader.style.display = 'flex';
-  }
-  // Auto-hide safety net in case no success/failure event ever arrives
-  clearTimeout(recoverableTimeout);
-  recoverableTimeout = setTimeout(hideReconnecting, 12000);
-}
-
-function hideReconnecting() {
-  const loader = document.getElementById('subtle-loader');
-  if (loader) loader.style.display = 'none';
-  clearTimeout(recoverableTimeout);
-}
-  
-player.addEventListener('error', (event) => {
-    // If Shaka can recover, just log it and let it do its thing behind the scenes
-    if (event.detail && event.detail.severity === shaka.util.Error.Severity.RECOVERABLE) {
-      console.warn('Recoverable Shaka error (retrying...):', event.detail);
-      showReconnecting();
-      return; 
-    }
-    // Only trigger the overlay for CRITICAL, non-recoverable errors
-    hideReconnecting();
-    onPlayerError(event.detail);
-  });
-
-  ui.getControls().addEventListener('error', (event) => {
-    if (event.detail && event.detail.severity === shaka.util.Error.Severity.RECOVERABLE) return;
-    onPlayerError(event.detail);
-  });
-  video.addEventListener('error', (e) => onPlayerError(video.error ? video.error.code : 'Native_Video_Error'));
-
+  const ui = new shaka.ui.Overlay(player, container, videoEl);
   ui.configure({
     controlPanelElements: [
-      'play_pause',
-      'time_and_duration',
-      'mute',
-      'volume',
-      'spacer',
-      'quality',
-      'fullscreen'
-    ]
+      'play_pause', 'mute', 'volume', 'time_and_duration',
+      'spacer', 'picture_in_picture', 'playback_rate', 'quality', 'fullscreen'
+    ],
+    seekBarColors: { base:'rgba(255,255,255,0.3)', buffered:'rgba(255,255,255,0.65)', played:'#f5b301' },
+    fadeDelay: 2,
+    addBigPlayButton: true,
+    doubleClickForFullscreen: true,
+    tapSeekDistance: 10,
   });
 
-const overlay = document.getElementById('click-overlay');
+  /* ---------- Player configuration ---------- */
+  const playerConfig = {
+    abr: {
+      enabled: true,
+      defaultBandwidthEstimate: 8000000,   // 8 Mbps start -> reaches 1080p fast on good connections
+      switchInterval: 8,
+      restrictToElementSize: true,         // fullscreen on a 1080p+ screen still serves 1080p; saves data on phones
+    },
+    manifest: {
+      defaultPresentationDelay: PRESENTATION_DELAY,
+      dash: { ignoreSuggestedPresentationDelay: true, ignoreMinBufferTime: false, autoCorrectDrift: true },
+      retryParameters: { maxAttempts: 6, baseDelay: 600, backoffFactor: 1.6, timeout: 30000 }
+    },
+    streaming: {
+      bufferingGoal:   BUFFERING_GOAL,
+      rebufferingGoal: REBUFFERING_GOAL,
+      bufferBehind:    BUFFER_BEHIND,
+      lowLatencyMode:  false,              // main buffering fix
+      jumpLargeGaps:   true,
+      gapDetectionThreshold: 0.5,
+      stallEnabled:    true,
+      stallThreshold:  1,
+      stallSkip:       0.1,
+      retryParameters: { maxAttempts: 8, baseDelay: 500, backoffFactor: 1.6, fuzzFactor: 0.5, timeout: 30000 }
+    }
+  };
 
-overlay.addEventListener('click', async () => {
-  try {
-    await video.play(); 
-    overlay.classList.add('hidden');
-  } catch (err) {
-    console.error("User play failed:", err);
+  if (KEY_ID && KEY){
+    playerConfig.drm = { clearKeys: { [KEY_ID]: KEY } };
   }
-});
+  player.configure(playerConfig);
 
-video.addEventListener('play', () => overlay.classList.add('hidden'));
-video.addEventListener('playing', hideReconnecting);
-player.addEventListener('buffering', (event) => {
-    if (event.buffering) showReconnecting();
-    else hideReconnecting();
+  /* ---------- Events ---------- */
+  player.addEventListener("error", onPlayerErrorEvent);
+  player.addEventListener("buffering", (e) => {
+    loader.classList.toggle("on", e.buffering);
+    if (e.buffering) loaderTxt.textContent = "Buffering…";
   });
-  
-// Stream Logic - Get ?ref= parameter
-const params = new URLSearchParams(window.location.search);
-const streamId = params.get('ref') || "1";
-const directHlsUrl = params.get('hls');
+  videoEl.addEventListener("playing", () => { loader.classList.remove("on"); hideStatus(); });
+  videoEl.addEventListener("waiting", () => { loader.classList.add("on"); });
 
-// Direct MPD parameters
-const directMpdUrl = params.get('mpd');
-const clearKeyId = params.get('kid');
-const clearKeyVal = params.get('key');
-
-// DIRECT M3U8 HANDLING
-if (directHlsUrl) {
-  const url = decodeURIComponent(directHlsUrl);
-
-  try { await ui.destroy(); } catch (e) { console.warn("UI destroy warning:", e); }
-  try { await player.destroy(); } catch (e) { console.warn("Player destroy warning:", e); }
-  player = null;
-
-  video.controls = true;
-
-  try {
-    if (Hls.isSupported()) {
-    
-    const hls = new Hls({
-    lowLatencyMode: false,
-    enableWorker: true,
-    maxBufferLength: 30,
-    backBufferLength: 30
-    });
-
-    let hlsRetryCount = 0; // Added counter
-
-    hls.on(Hls.Events.ERROR, function (event, data) {
-    if (data.fatal) {
-
-    switch(data.type) {
-
-    case Hls.ErrorTypes.NETWORK_ERROR:
-      if (data.response && (data.response.code === 403 || data.response.code === 404)) {
-        onPlayerError({ code: `HLS_HTTP_${data.response.code}`, message: 'Fatal HTTP error' });
-        hls.destroy();
-        break;
-      }
-      if (hlsRetryCount < 3) {
-        hlsRetryCount++;
-        console.warn(`HLS network error, retrying... (${hlsRetryCount}/3)`);
-        showReconnecting();  
-        hls.startLoad();
-      } else {
-        onPlayerError({ code: 'HLS_NETWORK_EXHAUSTED', message: 'Max retries reached' });
-        hls.destroy();
-      }
-      break;
-
-    case Hls.ErrorTypes.MEDIA_ERROR:
-      console.warn("HLS media error, recovering...");
-      hls.recoverMediaError();
-      break;
-
-    default:
-      onPlayerError('HLS_FATAL_' + data.type);
-      break;
+  const controlsContainer = container.querySelector(".shaka-controls-container");
+  if (controlsContainer){
+    new MutationObserver(() => {
+      container.classList.toggle("controls-visible", controlsContainer.getAttribute("shown") !== null);
+    }).observe(controlsContainer, { attributes:true, attributeFilter:["shown"] });
   }
 
-}
-    });
+  liveBadge.addEventListener("click", seekToLive);
+  statusBtn.addEventListener("click", () => { autoReloads = 0; loadStream(); });
+  container.addEventListener("contextmenu", (e) => e.preventDefault());
 
-      hls.loadSource(url);
-      hls.attachMedia(video);
-      console.log("✅ Direct HLS loaded via ref:", url);
-    } else {
-      video.src = url;
-      console.log("✅ Direct HLS native:", url);
-    }
-  } catch (e) {
-    console.error("Direct HLS load failed:", e);
-    onPlayerError("Direct_HLS_stream_failed");
-  }
-  return;
-}
-  
-// DIRECT MPD HANDLING
-if (directMpdUrl) {
-  try {
-    const url = decodeURIComponent(directMpdUrl);
-    
-    // Configurable retry params for aggressive network fallback
-    const resilientRetryConfig = { 
-      maxAttempts: 6,
-      baseDelay: 500, 
-      backoffFactor: 1.5, 
-      timeout: 30000, 
-      fuzzFactor: 0.5 
-    };
-
-    // Global configuration structure
-    const config = {
-      abr: {
-        enabled: true,
-        restrictToElementSize: true
-      },
-      manifest: {
-        retryParameters: resilientRetryConfig,
-        defaultPresentationDelay: 12, 
-          dash: { 
-            ignoreSuggestedPresentationDelay: true, // Forces Shaka to ignore the server's setting
-            autoCorrectDrift: true 
-              }
-      },
-      streaming: { 
-        lowLatencyMode: false,
-        bufferingGoal: 30,    
-        rebufferingGoal: 4,   
-        bufferBehind: 20,
-        jumpLargeGaps: true,
-        gapDetectionThreshold: 0.5,
-        stallEnabled: true,
-        stallThreshold: 1,
-        retryParameters: resilientRetryConfig
-      }
-    };
-
-    // Add DRM configuration if keys exist in URL query params
-    if (clearKeyId && clearKeyVal) {
-      config.drm = { 
-        clearKeys: { [clearKeyId]: clearKeyVal },
-        retryParameters: resilientRetryConfig
-      };
-    }
-
-    player.configure(config);
-    await player.load(url);
-    await video.play().catch(() => {});
-    console.log("✅ Direct MPD loaded via URL:", url);
-    return;
-    
-  } catch (e) {
-    onPlayerError(e);
-    return;
-  }
-}
-
-try {
-  const response = await fetch("https://ytvs-db.pages.dev/manifest.json", {
-    cache: "no-store"
-  });
-
-  if (!response.ok) throw new Error("Links fetch failed");
-
-  const streams = await response.json();
-  const stream = streams[streamId];
-
-  if (!stream) {
-    onPlayerError("Invalid_stream_ID");
-    return;
-  }
-
-  if (stream.type === "dash") {
-    const resilientRetryConfig = { 
-      maxAttempts: 6,
-      baseDelay: 500, 
-      backoffFactor: 1.5, 
-      timeout: 30000, 
-      fuzzFactor: 0.5 
-    };
-    
-    const config = {
-      abr: {
-        enabled: true,
-        restrictToElementSize: true
-      },
-      manifest: {
-        retryParameters: resilientRetryConfig,
-        defaultPresentationDelay: 12, 
-          dash: { 
-            ignoreSuggestedPresentationDelay: true, // Forces Shaka to ignore the server's setting
-            autoCorrectDrift: true 
-              }
-      },
-      streaming: { 
-        lowLatencyMode: false,
-        bufferingGoal: 30,    
-        rebufferingGoal: 4,   
-        bufferBehind: 20,
-        jumpLargeGaps: true,
-        gapDetectionThreshold: 0.5,
-        stallEnabled: true,
-        stallThreshold: 1,
-        retryParameters: resilientRetryConfig
-      }
-    };
-
-    // Correctly reference 'stream.keyId' and 'stream.key' here instead of URL params
-    if (stream.keyId && stream.key) {
-      config.drm = { 
-        clearKeys: { [stream.keyId]: stream.key },
-        retryParameters: resilientRetryConfig
-      };
-    }
-
-    player.configure(config);
-    await player.load(stream.url);
-    await video.play().catch(() => {});
-    console.log("✅ DASH loaded:");
-  }
-    
-else if (stream.type === "hls") {
-  try { await ui.destroy(); } catch (e) { console.warn("UI destroy warning:", e); }
-  try { await player.destroy(); } catch (e) { console.warn("Player destroy warning:", e); }
-  player = null;
-
-  video.controls = true;
-
-  try {
-    if (Hls.isSupported()) {
-    
-    const hls = new Hls({
-    lowLatencyMode: false,
-    enableWorker: true,
-    maxBufferLength: 30,
-    backBufferLength: 30
-    });
-
-    let hlsRetryCount = 0; // Added counter
-
-    hls.on(Hls.Events.ERROR, function (event, data) {
-    if (data.fatal) {
-
-  switch(data.type) {
-
-    case Hls.ErrorTypes.NETWORK_ERROR:
-      if (data.response && (data.response.code === 403 || data.response.code === 404)) {
-        onPlayerError({ code: `HLS_HTTP_${data.response.code}`, message: 'Fatal HTTP error' });
-        hls.destroy();
-        break;
-      }
-      if (hlsRetryCount < 3) {
-        hlsRetryCount++;
-        console.warn(`HLS network error, retrying... (${hlsRetryCount}/3)`);
-        showReconnecting();  
-        hls.startLoad();
-      } else {
-        onPlayerError({ code: 'HLS_NETWORK_EXHAUSTED', message: 'Max retries reached' });
-        hls.destroy();
-      }
-      break;
-
-    case Hls.ErrorTypes.MEDIA_ERROR:
-      console.warn("HLS media error, recovering...");
-      hls.recoverMediaError();
-      break;
-
-    default:
-      onPlayerError('HLS_FATAL_' + data.type);
-      break;
-  }
-
-}
-    });
-
-      hls.loadSource(stream.url);
-      hls.attachMedia(video);
-      console.log("✅ HLS via hls.js:");
-    } else {
-      video.src = stream.url;
-      console.log("✅ HLS native:");
-    }
-  } catch (e) {
-    console.error("HLS load failed:", e);
-    onPlayerError("HLS_stream_failed");
-  }
-}
-  
-} catch (err) {
-  console.error("Stream load failed:", err);
-  onPlayerError("Resource_temporarily_unavailable");
-}
-
-if ('wakeLock' in navigator) {
-  try {
-    navigator.wakeLock.request('screen').then(() => {
-      console.log("🔒 Screen Wake Lock is active");
-    });
-  } catch (err) {
-    console.warn(`Wake Lock failed: ${err.message}`);
-  }
-}
-
-// Live Edge Sync Action Listener
-  const liveIndicator = document.getElementById('live-indicator');
-  if (liveIndicator) {
-    liveIndicator.addEventListener('click', () => {
-      try {
-        if (player && player.isLive()) {
-          video.currentTime = player.seekRange().end - 1;
-        } else if (!player && video.seekable && video.seekable.length > 0) {
-          video.currentTime = video.seekable.end(video.seekable.length - 1) - 1;
-        }
-        video.play().catch(() => {});
-
-      } catch (e) { console.warn("Live sync catch trigger:", e); }
-    });
-  }
-
-  // Active Playback Watchdog Heartbeat Monitoring Routine
-  let lastTrackedTime = -1;
-  let stagnantFrameCounter = 0;
-
-    setInterval(() => {
-    if (!video) return;
-
-    // Check Live Stream Synchronization Delays
-    try {
-    const isHlsLive = !player && video.duration === Infinity;
-      if ((player && player.isLive()) || isHlsLive) {
-        liveIndicator.classList.add('visible');
-        const edge = player ? player.seekRange().end : (video.seekable.length ? video.seekable.end(video.seekable.length - 1) : video.currentTime);
-        const driftDistance = edge - video.currentTime;
-        liveIndicator.classList.toggle('behind', driftDistance > 15);
-      } else {
-        liveIndicator.classList.remove('visible');
-      }
-    } catch (err) { /* Silent ignore if seekRange isn't ready */ }
-
-    // Check For Stalled Playback Frames
-    if (video.paused || video.ended || video.readyState < 3) {
-      if (video) lastTrackedTime = video.currentTime;
-      return;
-    }
-
-    if (Math.abs(video.currentTime - lastTrackedTime) < 0.01) {
-      stagnantFrameCounter++;
-      if (stagnantFrameCounter >= 4) { // Frozen across 4 straight iterations
-        console.warn("Watchdog Action: Stagnant playback detected. Pushing head position.");
-        try {
-         const isHlsLive = !player && video.duration === Infinity;
-          if ((player && player.isLive()) || isHlsLive) {
-            video.currentTime = player ? (player.seekRange().end - 1) : (video.seekable.length ? video.seekable.end(video.seekable.length - 1) - 1 : video.currentTime);
-          } else {
-            video.currentTime += 0.05; // Small bump forward for VOD assets
-          }
-        } catch (e) { console.error("Watchdog recovery skip sequence failed:", e); }
-        stagnantFrameCounter = 0;
-      }
-    } else {
-      stagnantFrameCounter = 0;
-    }
-    lastTrackedTime = video.currentTime;
-  }, 1000);
-  
+  bindKeys();
+  startWatchdog();
+  await loadStream();
 });
 </script>
-
-
 </body>
 </html>
