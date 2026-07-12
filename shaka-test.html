@@ -411,7 +411,7 @@ if (directMpdUrl) {
     
     // Configurable retry params for aggressive network fallback
     const resilientRetryConfig = { 
-      maxAttempts: 10,
+      maxAttempts: 6,
       baseDelay: 500, 
       backoffFactor: 1.5, 
       timeout: 30000, 
@@ -482,7 +482,7 @@ try {
 
   if (stream.type === "dash") {
     const resilientRetryConfig = { 
-      maxAttempts: 10,
+      maxAttempts: 6,
       baseDelay: 500, 
       backoffFactor: 1.5, 
       timeout: 30000, 
