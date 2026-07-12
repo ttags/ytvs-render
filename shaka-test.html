@@ -266,7 +266,7 @@ function showReconnecting() {
   }
   // Auto-hide safety net in case no success/failure event ever arrives
   clearTimeout(recoverableTimeout);
-  recoverableTimeout = setTimeout(hideReconnecting, 8000);
+  recoverableTimeout = setTimeout(hideReconnecting, 15000);
 }
 
 function hideReconnecting() {
