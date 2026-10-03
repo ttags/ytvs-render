@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ono Video Player</title>
+<title>Yaki Video Player</title>
 
 <script src="https://cdn.jsdelivr.net/npm/shaka-player@5.2.0/dist/shaka-player.ui.min.js" crossorigin="anonymous"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shaka-player@5.2.0/dist/controls.min.css" crossorigin="anonymous">
@@ -194,9 +194,9 @@
 
 <!-- Shaka Player Video Container -->
 <div class="shaka-video-container">
-  <video playsinline preload="metadata" poster="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEipwFyueknjbWXtmnGkGVk_HOX3FhyrlrbzdRJmdvF7PCKYbOVYqYov1mCPchehq6dq1giBlDIPABNAxDmjkLfn5fLf4xhtdlHMsPmB2A27zQaR2-rHsu3BS0vYrkCkG2TrUtr-YkF-JTHh7JmDNuhIEbijStkJoVxOVBx2fjibrDlTfssDMiKPCouVUHI/s16000/ONOtv.png"></video>
+  <video playsinline preload="metadata" poster="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEj1YQTuxcQgr6q0XKRBCEsTzTDoEKiin9r3yvGgoWvAodXNjeU4QvhiYQw3TDwGmkgAx5nI0NfDuHvEn941gG5SgpHkmPfMfwJwNErA4Zidx3ykPm4Vn7ekB7o51HhqMIYM8fg7qnhlWQUHlVLSVuqjzne_uwd_aqhItqEr8-WJegszIESdLlz7K6BHU-bH/s1600/Yaki%20TV%201.png"></video>
 
-<div id="overlay-text">ONO TV</div>
+<div id="overlay-text">Yaki TV</div>
 
 
 <div id="subtle-loader" style="position:absolute; inset:0; background:rgba(0,0,0,0.5); display:none; flex-direction:column; align-items:center; justify-content:center; z-index:25; color:#fff; font-family:sans-serif; gap:12px;">
@@ -233,12 +233,19 @@
   <script>
 const MANIFEST_URL = "https://ytvs-db.pages.dev/manifest.json";
 
+const S = [
+  "d2b4c0fb", // 0
+  "bf9358d0", // 1
+  "e188e4d8", // 2
+  "6aaedb0e", // 3
+  "a70c630e", // 4
+  "faa9eaf6", // 5
+  "84ed07e9", // 6
+  "b776d138"  // 7
+];
+
 function getKey() {
-    const p1 = "d2b4c0fbbf9358d0";
-    const p2 = "e188e4d86aaedb0e";
-    const p3 = "a70c630efaa9eaf6";
-    const p4 = "84ed07e9b776d138";
-    return p1 + p2 + p3 + p4;
+  return S[0] + S[1] + S[2] + S[3] + S[4] + S[5] + S[6] + S[7];
 }
 
 function hexToBytes(hex) {
